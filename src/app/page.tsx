@@ -1,18 +1,29 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { FamilyGraph } from "../components/FamilyGraph";
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { FamilyBrowser } from "../components/FamilyBrowser";
 
-// Root route = Family Graph (matches the original App.tsx default tab).
-export default function Page() {
-  const router = useRouter();
+function BrowseLanding() {
+  const searchParams = useSearchParams();
+  const personId = searchParams.get("person");
+  const [refreshKey, setRefreshKey] = useState(0);
 
   return (
-    <FamilyGraph
-      refreshKey={0}
-      onViewPerson={(personId) => {
-        router.push(`/browse?person=${encodeURIComponent(personId)}`);
-      }}
+    <FamilyBrowser
+      refreshKey={refreshKey}
+      navigateToPersonId={personId ?? null}
+      onDataChanged={() => setRefreshKey((k) => k + 1)}
     />
+  );
+}
+
+// Root route = Browse. `/browse` still renders the same page for backward
+// compatibility with any existing deep links (see src/app/browse/page.tsx).
+export default function Page() {
+  return (
+    <Suspense fallback={<div className="graph-loading">Loading…</div>}>
+      <BrowseLanding />
+    </Suspense>
   );
 }

@@ -8,10 +8,15 @@ import { usePathname } from "next/navigation";
 // `usePathname()` to figure out which tab is active instead of local state.
 export function AppChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isGraph = pathname === "/";
+  // The graph view is the only route that runs full-bleed with no footer.
+  const isGraph = pathname === "/graph" || pathname.startsWith("/graph/");
 
   function isActive(href: string) {
-    if (href === "/") return pathname === "/";
+    if (href === "/") {
+      // Root is the Browse landing — also match /browse so the Browse tab
+      // stays highlighted when users hit that legacy URL directly.
+      return pathname === "/" || pathname === "/browse" || pathname.startsWith("/browse/");
+    }
     return pathname === href || pathname.startsWith(href + "/");
   }
 
@@ -21,6 +26,10 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
         <div className="header-content">
           <h1 className="app-title">वंश · Vamsha</h1>
           <p className="app-subtitle">Family History & Heritage Tracker</p>
+          <p className="app-credit">
+            <span className="app-credit-label">Crafted by</span>
+            <span className="app-credit-name">Akshay Nimbal</span>
+          </p>
         </div>
       </header>
 
@@ -28,6 +37,13 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
         <Link
           href="/"
           className={`nav-tab ${isActive("/") ? "active" : ""}`}
+        >
+          <span className="nav-icon">◉</span>
+          Browse Families
+        </Link>
+        <Link
+          href="/graph"
+          className={`nav-tab ${isActive("/graph") ? "active" : ""}`}
         >
           <span className="nav-icon">✦</span>
           Family Graph
@@ -40,18 +56,11 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
           Add Member
         </Link>
         <Link
-          href="/browse"
-          className={`nav-tab ${isActive("/browse") ? "active" : ""}`}
-        >
-          <span className="nav-icon">◉</span>
-          Browse
-        </Link>
-        <Link
           href="/paths"
           className={`nav-tab ${isActive("/paths") ? "active" : ""}`}
         >
           <span className="nav-icon">⇄</span>
-          Find Paths
+          Find Relations
         </Link>
       </nav>
 
@@ -68,6 +77,9 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
               Data stored as a graph to capture the rich, interconnected
               relationships across families.
             </small>
+          </p>
+          <p className="app-footer-credit">
+            Crafted with care by <strong>Akshay Nimbal</strong>
           </p>
         </footer>
       )}

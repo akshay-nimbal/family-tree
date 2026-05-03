@@ -126,6 +126,10 @@ export function FamilyGraph({ refreshKey, onViewPerson }: FamilyGraphProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
   const fitRef = useRef<() => void>(() => {});
+  // Imperative "focus this person" handle installed by the main d3 effect.
+  // Called from the search box to highlight a node + pan the viewport.
+  const focusPersonRef = useRef<(id: string | null) => void>(() => {});
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [graphData, setGraphData] = useState<GraphData | null>(null);
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [loading, setLoading] = useState(true);
@@ -133,6 +137,9 @@ export function FamilyGraph({ refreshKey, onViewPerson }: FamilyGraphProps) {
   const [highlightFamily, setHighlightFamily] = useState<string | null>(null);
   const [showSiblings, setShowSiblings] = useState(false);
   const [showAllLabels, setShowAllLabels] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
 
   const loadGraph = useCallback(async () => {
     setLoading(true);
@@ -523,6 +530,35 @@ export function FamilyGraph({ refreshKey, onViewPerson }: FamilyGraphProps) {
       }
     });
 
+    // Expose imperative focus-by-id so the search box (outside this effect)
+    // can select a node, highlight its links via redraw(), and pan to it.
+    focusPersonRef.current = (id) => {
+      if (!id) {
+        currentSelectedId = null;
+        currentHoverId = null;
+        setSelectedNode(null);
+        redraw();
+        return;
+      }
+      const target = nodeMap.get(id);
+      if (!target) return;
+      currentSelectedId = id;
+      currentHoverId = null;
+      setSelectedNode(target);
+      redraw();
+
+      // Pan so the node ends up roughly centered, keeping the current zoom level
+      // (clamped to at least 0.9 so a tiny match isn't a speck).
+      const currentTransform = d3.zoomTransform(svg.node() as SVGSVGElement);
+      const scale = Math.max(0.9, currentTransform.k);
+      const tx = width / 2 - (target.x ?? 0) * scale;
+      const ty = height / 2 - (target.y ?? 0) * scale;
+      svg
+        .transition()
+        .duration(500)
+        .call(zoom.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
+    };
+
     const drag = d3
       .drag<SVGGElement, SimNode>()
       .on("start", (event, d) => {
@@ -646,6 +682,48 @@ export function FamilyGraph({ refreshKey, onViewPerson }: FamilyGraphProps) {
       );
   }, [highlightFamily, graphData]);
 
+  // Autocomplete matches: case-insensitive substring across full name + family.
+  // Ranking: name-prefix first, then name-substring, then family match.
+  const searchMatches = useMemo(() => {
+    if (!graphData) return [] as GraphNode[];
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return [];
+    const scored: Array<{ node: GraphNode; score: number }> = [];
+    for (const n of graphData.nodes) {
+      const name = n.fullName.toLowerCase();
+      const fam = n.familyName.toLowerCase();
+      let score = -1;
+      if (name.startsWith(q)) score = 0;
+      else if (name.includes(" " + q)) score = 1;
+      else if (name.includes(q)) score = 2;
+      else if (fam.startsWith(q)) score = 3;
+      else if (fam.includes(q)) score = 4;
+      if (score >= 0) scored.push({ node: n, score });
+    }
+    scored.sort((a, b) => {
+      if (a.score !== b.score) return a.score - b.score;
+      return a.node.fullName.localeCompare(b.node.fullName);
+    });
+    return scored.slice(0, 8).map((s) => s.node);
+  }, [graphData, searchQuery]);
+
+  // Reset active-row highlight whenever the result set changes.
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [searchQuery]);
+
+  function pickMatch(node: GraphNode) {
+    focusPersonRef.current(node.id);
+    setSearchQuery(node.fullName);
+    setSearchOpen(false);
+  }
+
+  function clearSearch() {
+    setSearchQuery("");
+    setSearchOpen(false);
+    focusPersonRef.current(null);
+  }
+
   if (loading) {
     return (
       <div className="graph-container">
@@ -668,6 +746,92 @@ export function FamilyGraph({ refreshKey, onViewPerson }: FamilyGraphProps) {
     <div className="graph-page">
       <div className="graph-container" ref={containerRef}>
         <svg ref={svgRef} />
+
+        <div className="graph-search" onClick={(e) => e.stopPropagation()}>
+          <div className="graph-search-input-wrap">
+            <span className="graph-search-icon" aria-hidden>⌕</span>
+            <input
+              ref={searchInputRef}
+              className="graph-search-input"
+              type="text"
+              placeholder="Search person or family…"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setSearchOpen(true);
+              }}
+              onFocus={() => {
+                if (searchQuery.trim()) setSearchOpen(true);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "ArrowDown") {
+                  e.preventDefault();
+                  if (searchMatches.length) {
+                    setSearchOpen(true);
+                    setActiveIndex((i) =>
+                      Math.min(searchMatches.length - 1, i + 1)
+                    );
+                  }
+                } else if (e.key === "ArrowUp") {
+                  e.preventDefault();
+                  setActiveIndex((i) => Math.max(0, i - 1));
+                } else if (e.key === "Enter") {
+                  e.preventDefault();
+                  const pick = searchMatches[activeIndex];
+                  if (pick) pickMatch(pick);
+                } else if (e.key === "Escape") {
+                  e.preventDefault();
+                  if (searchOpen) setSearchOpen(false);
+                  else clearSearch();
+                }
+              }}
+              autoComplete="off"
+              spellCheck={false}
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                className="graph-search-clear"
+                onClick={() => {
+                  clearSearch();
+                  searchInputRef.current?.focus();
+                }}
+                aria-label="Clear search"
+              >
+                ×
+              </button>
+            )}
+          </div>
+
+          {searchOpen && searchQuery.trim() && (
+            <div className="graph-search-results" role="listbox">
+              {searchMatches.length === 0 ? (
+                <div className="graph-search-empty">No matches</div>
+              ) : (
+                searchMatches.map((n, i) => (
+                  <button
+                    type="button"
+                    key={n.id}
+                    role="option"
+                    aria-selected={i === activeIndex}
+                    className={`graph-search-result ${
+                      i === activeIndex ? "active" : ""
+                    }`}
+                    onMouseEnter={() => setActiveIndex(i)}
+                    onClick={() => pickMatch(n)}
+                  >
+                    <span
+                      className="graph-search-dot"
+                      style={{ background: familyColorMap[n.familyName] }}
+                    />
+                    <span className="graph-search-name">{n.fullName}</span>
+                    <span className="graph-search-family">{n.familyName}</span>
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+        </div>
 
         <div className="graph-legend">
           <div className="legend-title">Families</div>

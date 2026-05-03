@@ -46,7 +46,7 @@ body {
 .app-header {
   background: linear-gradient(135deg, #3e2c1c, #6b4c2f, #8b6f4e);
   color: white;
-  padding: 2.5rem 2rem;
+  padding: 1rem 1rem;
   text-align: center;
 }
 
@@ -62,6 +62,35 @@ body {
   font-size: 1rem;
   opacity: 0.85;
   font-weight: 400;
+}
+
+/* Author credit — quiet but always visible. Uses a thin gold accent rule so
+   the name stands out from the subtitle without competing with the title. */
+.app-credit {
+  margin-top: 0.9rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.25rem 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(4px);
+}
+
+.app-credit-label {
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.7;
+  font-weight: 500;
+}
+
+.app-credit-name {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  letter-spacing: 0.02em;
+  color: #f4d9a5;
 }
 
 /* Navigation */
@@ -128,6 +157,19 @@ body {
   font-size: 0.85rem;
   border-top: 1px solid var(--color-border);
   margin-top: 3rem;
+}
+
+.app-footer-credit {
+  margin-top: 1.25rem;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  color: var(--color-text-secondary);
+  letter-spacing: 0.02em;
+}
+
+.app-footer-credit strong {
+  color: var(--color-primary);
+  font-weight: 700;
 }
 
 /* Person Form */
@@ -1224,6 +1266,6 @@ a.detail-value:hover {
   }
 
   .app-header {
-    padding: 1.5rem 1rem;
+    padding: 1rem 1rem;
   }
 }
