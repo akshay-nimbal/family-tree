@@ -271,9 +271,40 @@ export function FamilyBrowser({ refreshKey, onDataChanged, navigateToPersonId }:
     }
   }
 
+  async function jumpToPerson(person: PersonRecord) {
+    setSelectedFamily(person.familyName);
+    await viewPerson(person);
+  }
+
+  function closeDetail() {
+    if (editing || mergeMode) return;
+    setSelectedPerson(null);
+    setRelationships(null);
+    setEditMessage(null);
+    setMergeMessage(null);
+  }
+
+  useEffect(() => {
+    if (!selectedPerson) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") closeDetail();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPerson, editing, mergeMode]);
+
   return (
     <div className="family-browser">
       <h2>Browse Families</h2>
+
+      <div className="browse-quick-search">
+        <PersonSearch
+          label="Jump to a person"
+          onSelect={jumpToPerson}
+          placeholder="Type a name, phone, or email to find anyone…"
+        />
+      </div>
 
       <div className="family-grid">
         {families.length === 0 ? (
@@ -336,7 +367,29 @@ export function FamilyBrowser({ refreshKey, onDataChanged, navigateToPersonId }:
       )}
 
       {selectedPerson && (
-        <div className="person-detail">
+        <div
+          className="person-modal-backdrop"
+          onClick={closeDetail}
+          role="presentation"
+        >
+          <div
+            className="person-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Details for ${selectedPerson.fullName}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="person-modal-close"
+              onClick={closeDetail}
+              aria-label="Close details"
+              title={editing || mergeMode ? "Finish or cancel edits first" : "Close (Esc)"}
+              disabled={editing || mergeMode}
+            >
+              &times;
+            </button>
+            <div className="person-detail person-detail--in-modal">
           <div className="person-detail-header">
             <PhotoAvatar
               photoUrl={selectedPerson.photoUrl}
@@ -694,6 +747,8 @@ export function FamilyBrowser({ refreshKey, onDataChanged, navigateToPersonId }:
               )}
             </div>
           )}
+            </div>
+          </div>
         </div>
       )}
     </div>
