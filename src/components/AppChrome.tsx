@@ -26,10 +26,6 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
         <div className="header-content">
           <h1 className="app-title">वंश · Vamsha</h1>
           <p className="app-subtitle">Family History & Heritage Tracker</p>
-          <p className="app-credit">
-            <span className="app-credit-label">Crafted by</span>
-            <span className="app-credit-name">Akshay Nimbal</span>
-          </p>
         </div>
       </header>
 
