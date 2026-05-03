@@ -39,7 +39,10 @@ export function getDriver(): Driver {
 }
 
 export function getSession(): Session {
-  return getDriver().session();
+  // NEO4J_DATABASE is required on Aura (each instance has its own named db,
+  // typically the instance id), optional on self-hosted (default: "neo4j").
+  const database = process.env.NEO4J_DATABASE;
+  return getDriver().session(database ? { database } : undefined);
 }
 
 // ---------------------------------------------------------------------------
@@ -62,7 +65,7 @@ export function ensureSchema(): Promise<void> {
 }
 
 async function initSchemaInternal(): Promise<void> {
-  const session = getDriver().session();
+  const session = getSession();
   try {
     await session.run(
       "CREATE CONSTRAINT person_id IF NOT EXISTS FOR (p:Person) REQUIRE p.id IS UNIQUE"

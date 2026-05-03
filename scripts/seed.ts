@@ -36,6 +36,7 @@ import { randomUUID } from "crypto";
 const URI = process.env.NEO4J_URI || "bolt://localhost:7687";
 const USER = process.env.NEO4J_USER || "neo4j";
 const PASSWORD = process.env.NEO4J_PASSWORD || "vamsha_dev_password";
+const DATABASE = process.env.NEO4J_DATABASE; // optional; required on Aura
 
 type Gender = "male" | "female";
 
@@ -1231,7 +1232,7 @@ const extraSiblingPairs: Array<[string, string]> = [
 ];
 
 async function run(driver: Driver): Promise<void> {
-  const session = driver.session();
+  const session = DATABASE ? driver.session({ database: DATABASE }) : driver.session();
   try {
     console.log("Wiping existing Person/Family data...");
     await session.run("MATCH (n) WHERE n:Person OR n:Family DETACH DELETE n");
